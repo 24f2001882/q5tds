@@ -2,7 +2,12 @@ import os
 import json
 import time
 import threading
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+
+import requests
 from dotenv import load_dotenv  # Imports env loader
+from fastapi import FastAPI
 from openai import OpenAI
 from openai import APIStatusError
 from telegram import Update
@@ -15,6 +20,10 @@ load_dotenv()
 # os.environ.get reads from the .env file locally, or from Render's Settings on the web
 TELEGRAM_BOT_TOKEN = os.environ.get("BOT_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+# Your own public server URL — set this to the Render URL after first deploy,
+# e.g. BASE_URL=https://your-service.onrender.com. Defaults to localhost for
+# local testing so nothing crashes if it's unset.
+BASE_URL = os.environ.get("BASE_URL", "http://localhost:8000").rstrip("/")
 
 GITHUB_USERNAME = "24f2001882"
 GITHUB_REPO = "q5tds"
@@ -98,7 +107,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Catch Rate Limits (429), Model Overload/Unavailable (503), or Deprecated Models (404)
             if e.status_code in [404, 429, 503]:
                 print(f"⚠️ {model_name} failed (Status {e.status_code}). Cascading to next fallback...")
-                time.sleep(0.5)  # Brief buffer pause
+                time.sleep(1)  # brief buffer pause between cascade attempts
                 continue
             else:
                 # Re-raise critical authorization errors (like 401 Invalid Key)
@@ -144,7 +153,52 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(final_reply)
 
 
-app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-print("Bot is running... (Ctrl+C to stop)")
-app.run_polling()
+# ------------------------------------------------------------------
+# Telegram application (long polling) — kept as its own object, separate
+# from the FastAPI `app` below, since Render's `uvicorn bot:app` needs
+# `app` to be the FastAPI instance.
+# ------------------------------------------------------------------
+telegram_app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+
+def run_telegram_bot():
+    # stop_signals=None: signal handlers can only be registered on the main
+    # thread, and this runs in a background thread.
+    telegram_app.run_polling(stop_signals=None)
+
+
+def self_ping_loop():
+    """Keeps Render's free-tier instance from spinning down after ~15 min idle."""
+    while True:
+        time.sleep(600)  # 10 minutes
+        try:
+            requests.get(f"{BASE_URL}/health", timeout=15)
+        except Exception:
+            pass
+
+
+# ------------------------------------------------------------------
+# FastAPI app — this is what Render/uvicorn actually binds to $PORT.
+# Telegram polling and the self-ping run alongside it in background threads.
+# ------------------------------------------------------------------
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    threading.Thread(target=run_telegram_bot, daemon=True).start()
+    threading.Thread(target=self_ping_loop, daemon=True).start()
+    print("Bot is running (Telegram polling + self-ping started)...")
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/health")
+def health():
+    return {"ok": True, "time": datetime.now(timezone.utc).isoformat()}
+
+
+if __name__ == "__main__":
+    # Local convenience: `python bot.py` works too, not just uvicorn.
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))

@@ -1,4 +1,6 @@
-telethon>=1.36,<2
+python-telegram-bot
+openai
 python-dotenv
-python-telegram-bot==21.10
-openai==1.61.0
+fastapi
+uvicorn
+requests
