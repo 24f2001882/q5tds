@@ -1,0 +1,4 @@
+telethon>=1.36,<2
+python-dotenv
+python-telegram-bot==21.10
+openai==1.61.0

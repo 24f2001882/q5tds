@@ -1,0 +1,13 @@
+# Secure configuration environments
+.env
+
+# Python runtime artifact caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Local system configurations
+.DS_Store
+Thumbs.db

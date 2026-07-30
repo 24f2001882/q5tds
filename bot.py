@@ -1,9 +1,10 @@
 import os
 import json
 import time
+import threading
 from dotenv import load_dotenv  # Imports env loader
 from openai import OpenAI
-from openai import APIStatusError  
+from openai import APIStatusError
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 
@@ -17,33 +18,35 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 GITHUB_USERNAME = "24f2001882"
 GITHUB_REPO = "q5tds"
-GITHUB_BRANCH = "main"  
+GITHUB_BRANCH = "main"
 
 LOG_FILE = "run.jsonl"
 LOG_URL = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPO}/{GITHUB_BRANCH}/{LOG_FILE}"
+
 # Initialize client using Google's official structural endpoint
 client = OpenAI(
     base_url="https://generativelanguage.googleapis.com/v1beta/openai",
     api_key=GEMINI_API_KEY
 )
 
-
 # Keeps the last few messages per chat, so multi-turn questions work
 conversation_history = {}
 
+
+def _push_log_to_github():
+    """Runs in a background thread so git push never blocks the Telegram reply."""
+    try:
+        os.system(f'git add {LOG_FILE} && git commit -m "update log" && git push -q')
+    except Exception as e:
+        print(f"⚠️ Git push failed: {e}")
+
+
 def log_event(event: dict):
     event["timestamp"] = time.time()
-    
-    # Write to local file first
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(json.dumps(event) + "\n")
-    
-    # Automatically push the updated log file to GitHub
-    try:
-        os.system(f'git add {LOG_FILE} && git commit -m "update logs" && git push')
-        print(f"🚀 Logs successfully pushed to GitHub! View at: {LOG_URL}")
-    except Exception as e:
-        print(f"⚠️ Failed to auto-push logs to Git: {e}")
+    # Push in the background so the git commit/push never blocks the reply
+    threading.Thread(target=_push_log_to_github, daemon=True).start()
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -65,17 +68,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Reply with ONLY that exact JSON object and absolutely nothing else — no "
         "explanation, no markdown, no code fences, just the raw JSON."
     )
-    
-    # FIXED: Real production model names valid on Google's OpenAI-compatible endpoint
+
+    # Real production model names valid on Google's OpenAI-compatible endpoint.
+    # Each has a 5 RPM limit on the free tier — cascading on 429 spreads load across them.
     model_cascade = [
-        "gemini-2.5-flash",       
-        "gemini-1.5-flash",       
-        "gemini-1.5-pro",  
-        "gemini-2.5-pro"        
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
     ]
 
     response = None
-    # This is your model fallback logic loop!
+    # Model fallback cascade loop
     for model_name in model_cascade:
         try:
             response = client.chat.completions.create(
@@ -86,9 +92,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             break
         except APIStatusError as e:
             # Catch Rate Limits (429), Model Overload/Unavailable (503), or Deprecated Models (404)
-            if e.status_code in [404,429,503]:
+            if e.status_code in [404, 429, 503]:
                 print(f"⚠️ {model_name} failed (Status {e.status_code}). Cascading to next fallback...")
-                time.sleep(0.5) # Brief buffer pause
+                time.sleep(0.5)  # Brief buffer pause
                 continue
             else:
                 # Re-raise critical authorization errors (like 401 Invalid Key)
@@ -102,7 +108,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ System overloaded. Please try again in a moment.")
         return
 
-    # FIXED: Access choice item index [0] to avoid the 'list object has no attribute message' crash
     reply_text = response.choices[0].message.content.strip()
     history.append({"role": "assistant", "content": reply_text})
 
@@ -119,7 +124,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parsed = {"error": "Invalid response format from model"}
         else:
             parsed = {"error": "Invalid response format from model"}
-            
+
     # Inject your absolute working Raw GitHub link
     parsed["log_url"] = LOG_URL
     final_reply = json.dumps(parsed)
