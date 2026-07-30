@@ -2,3 +2,4 @@
 {"type": "outgoing", "chat_id": 6219738978, "text": "{\"answer\": 30, \"log_url\": \"https://raw.githubusercontent.com/24f2001882/q5tds/main/run.jsonl\"}", "timestamp": 1785399269.8733037}
 {"type": "incoming", "chat_id": 6219738978, "text": "Which state has the highest maternal mortality rate based on MOSPI data? Reply with ONLY a JSON object like {\"state\": \"<state name>\"}", "timestamp": 1785399320.3810127}
 {"type": "outgoing", "chat_id": 6219738978, "text": "{\"state\": \"Assam\", \"log_url\": \"https://raw.githubusercontent.com/24f2001882/q5tds/main/run.jsonl\"}", "timestamp": 1785399322.741817}
+{"type": "incoming", "chat_id": 6219738978, "text": "According to the latest Indian Census statistics, which state has the highest literacy rate? Reply with ONLY a JSON object like {\"state\": \"<state name>\", \"rate_percentage\": 0.0}", "timestamp": 1785399324.5681162}
