@@ -6,3 +6,4 @@
 {"type": "outgoing", "chat_id": 6219738978, "text": "{\"answer\": 30, \"log_url\": \"https://raw.githubusercontent.com/24f2001882/q5tds/main/run.jsonl\"}", "timestamp": 1785428500.7898047}
 {"type": "incoming", "chat_id": 6219738978, "text": "Which state has the highest maternal mortality rate based on MOSPI data? Reply with ONLY a JSON object like {\"state\": \"<state name>\"}", "timestamp": 1785428547.890642}
 {"type": "outgoing", "chat_id": 6219738978, "text": "{\"answer\": {\"state\": \"Assam\"}, \"log_url\": \"https://raw.githubusercontent.com/24f2001882/q5tds/main/run.jsonl\"}", "timestamp": 1785428552.0736358}
+{"type": "incoming", "chat_id": 6219738978, "text": "Which metropolitan city region in India holds the highest total population according to official national demographic records? Reply with ONLY a JSON object like {\"metro_city\": \"<city name>\"}", "timestamp": 1785430470.8503866}
