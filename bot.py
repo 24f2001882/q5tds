@@ -62,10 +62,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     system_prompt = (
         "You are a careful data analyst. The user's LAST message asks a data-analysis "
-        "question and tells you exactly what JSON shape to reply with. Work out the "
-        "real answer (use any public data you know, e.g. MOSPI statistics, general "
-        "world knowledge, or arithmetic on numbers given in the message). "
-        "Reply with ONLY that exact JSON object and absolutely nothing else — no "
+        "question and tells you exactly what JSON shape the answer content should take. "
+        "Work out the real answer (use any public data you know, e.g. MOSPI statistics, "
+        "general world knowledge, or arithmetic on numbers given in the message). "
+        "Your reply must ALWAYS be a single JSON object of the exact form "
+        '{"answer": <the shape the question asked for>, "log_url": "..."} — the shape '
+        'the question shows you (e.g. {"state": "<state name>"}) goes INSIDE the '
+        '"answer" key, never at the top level. '
+        "Reply with ONLY that JSON object and absolutely nothing else — no "
         "explanation, no markdown, no code fences, just the raw JSON."
     )
 
@@ -124,6 +128,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parsed = {"error": "Invalid response format from model"}
         else:
             parsed = {"error": "Invalid response format from model"}
+
+    # Enforce the required envelope: {"answer": <question shape>, "log_url": ...}
+    # The model sometimes replies with the question's inner shape directly
+    # (e.g. {"state": "Assam"}) instead of nesting it under "answer" — this
+    # normalizes either case so the outer key is always present.
+    if not isinstance(parsed, dict) or "answer" not in parsed:
+        parsed = {"answer": parsed}
 
     # Inject your absolute working Raw GitHub link
     parsed["log_url"] = LOG_URL
