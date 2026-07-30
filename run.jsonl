@@ -1,3 +1,4 @@
 {"type": "incoming", "chat_id": 6219738978, "text": "Which state has the highest maternal mortality rate based on MOSPI data? Reply with ONLY a JSON object like {\"state\": \"<state name>\"}", "timestamp": 1785402216.7052588}
 {"type": "outgoing", "chat_id": 6219738978, "text": "{\"answer\": {\"state\": \"Assam\"}, \"log_url\": \"https://raw.githubusercontent.com/24f2001882/q5tds/main/run.jsonl\"}", "timestamp": 1785402221.7090533}
 {"type": "incoming", "chat_id": 5366448415, "text": "thambi thappu", "timestamp": 1785428481.012505}
+{"type": "outgoing", "chat_id": 5366448415, "text": "{\"answer\": \"Please provide a data analysis question.\", \"log_url\": \"https://raw.githubusercontent.com/24f2001882/q5tds/main/run.jsonl\"}", "timestamp": 1785428496.0372875}
